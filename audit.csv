@@ -1,0 +1,4 @@
+1,UserLogin,admin,User logged in as Admin,2026-10-22 08:00:00,-1,-1,-1,System initialization
+2,ProductAdd,admin,Added product: MacBook Pro 14 M3,2026-10-22 08:05:00,-1,12,1,Initial catalog upload
+3,Sale,staff1,Sale #5001 to Rahul Sharma,2026-10-22 08:10:00,19,18,3,In-store POS billing
+4,Sale,staff1,Sale #5002 to Priya Patel,2026-10-22 08:12:00,44,40,5,In-store POS billing

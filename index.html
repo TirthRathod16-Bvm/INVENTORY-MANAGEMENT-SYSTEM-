@@ -1,0 +1,2246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Management & Stock Monitoring System</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #printableReceipt, #printableReceipt * { visibility: visible; }
+      #printableReceipt { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <!-- Logo / Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+            <i class="fa-solid fa-boxes-stacked text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold text-slate-900 leading-tight">StockMaster C++</h1>
+            <p class="text-xs text-indigo-600 font-semibold tracking-wide">INVENTORY & STOCK MONITORING SYSTEM (204ES)</p>
+          </div>
+        </div>
+
+        <!-- Right: Role Switcher & User Profile -->
+        <div class="flex items-center space-x-4">
+          <!-- Low Stock Bell Alert Badge -->
+          <button onclick="switchTab('alerts')" class="relative p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition" title="View Stock Alerts">
+            <i class="fa-solid fa-bell text-lg"></i>
+            <span id="headerAlertBadge" class="hidden absolute top-1 right-1 w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">0</span>
+          </button>
+
+          <!-- Fast Role Switcher for examiner testing -->
+          <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs border border-slate-200">
+            <span class="px-2 text-slate-500 font-medium">Role:</span>
+            <select id="userRoleSelect" onchange="changeActiveRole(this.value)" class="bg-white text-slate-800 font-semibold py-1 px-2 rounded-lg border border-slate-200 shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+              <option value="Admin">Admin (Full Access)</option>
+              <option value="Manager">Manager (Stock & PO)</option>
+              <option value="Staff">Staff (POS & View)</option>
+            </select>
+          </div>
+
+          <!-- User avatar -->
+          <div class="flex items-center space-x-2 pl-2 border-l border-slate-200">
+            <div id="userAvatar" class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+              AD
+            </div>
+            <div class="hidden sm:block text-left">
+              <div id="userFullName" class="text-xs font-bold text-slate-800">System Admin</div>
+              <div id="userRoleBadge" class="text-[10px] text-emerald-600 font-semibold uppercase">Admin</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div class="bg-slate-900 text-slate-300">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav class="flex space-x-1 sm:space-x-2 overflow-x-auto py-2 custom-scrollbar text-sm font-medium">
+          <button onclick="switchTab('dashboard')" id="tab-dashboard" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 bg-indigo-600 text-white shadow-sm">
+            <i class="fa-solid fa-chart-pie"></i><span>Dashboard</span>
+          </button>
+          <button onclick="switchTab('products')" id="tab-products" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 hover:bg-slate-800 hover:text-white">
+            <i class="fa-solid fa-box"></i><span>Products</span>
+          </button>
+          <button onclick="switchTab('pos')" id="tab-pos" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 hover:bg-slate-800 hover:text-white">
+            <i class="fa-solid fa-cash-register"></i><span>POS & Billing</span>
+          </button>
+          <button onclick="switchTab('alerts')" id="tab-alerts" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 hover:bg-slate-800 hover:text-white">
+            <i class="fa-solid fa-triangle-exclamation"></i><span>Stock Alerts</span>
+            <span id="tabAlertCount" class="hidden ml-1 px-1.5 py-0.5 text-xs bg-rose-500 text-white rounded-full">0</span>
+          </button>
+          <button onclick="switchTab('suppliers')" id="tab-suppliers" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 hover:bg-slate-800 hover:text-white">
+            <i class="fa-solid fa-truck-fast"></i><span>Suppliers & PO</span>
+          </button>
+          <button onclick="switchTab('analytics')" id="tab-analytics" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 hover:bg-slate-800 hover:text-white">
+            <i class="fa-solid fa-chart-line"></i><span>Analytics & Forecast</span>
+          </button>
+          <button onclick="switchTab('audit')" id="tab-audit" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 hover:bg-slate-800 hover:text-white">
+            <i class="fa-solid fa-clock-rotate-left"></i><span>Audit & Undo</span>
+          </button>
+          <button onclick="switchTab('admin')" id="tab-admin" class="nav-tab px-3 py-2 rounded-lg transition flex items-center space-x-2 hover:bg-slate-800 hover:text-white">
+            <i class="fa-solid fa-sliders"></i><span>Admin & Reports</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+    <!-- GLOBAL ALERT BANNER (If any out-of-stock items) -->
+    <div id="globalAlertBanner" class="hidden mb-6 bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl shadow-sm flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-circle-exclamation text-rose-500 text-xl"></i>
+        <div>
+          <h4 class="text-sm font-bold text-rose-800">Critical Stock Warning</h4>
+          <p id="globalAlertMsg" class="text-xs text-rose-700">Some products are out of stock or below threshold.</p>
+        </div>
+      </div>
+      <button onclick="switchTab('alerts')" class="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg transition shadow-sm">
+        Review Stock Alerts
+      </button>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: DASHBOARD -->
+    <!-- ======================================================== -->
+    <section id="view-dashboard" class="tab-content space-y-6">
+      <!-- KPI Metric Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <!-- Total Products -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Products</p>
+            <h3 id="statTotalProducts" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+            <p class="text-xs text-slate-500 mt-1"><span id="statStockUnits" class="font-semibold text-indigo-600">0</span> units in stock</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-boxes-stacked"></i>
+          </div>
+        </div>
+
+        <!-- Inventory Value -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Inventory Valuation</p>
+            <h3 id="statInventoryValue" class="text-2xl font-bold text-slate-900 mt-1">Rs 0.00</h3>
+            <p class="text-xs text-emerald-600 font-medium mt-1"><i class="fa-solid fa-shield-halved"></i> Asset Value</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-indian-rupee-sign"></i>
+          </div>
+        </div>
+
+        <!-- Total Revenue -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Gross Revenue</p>
+            <h3 id="statTotalRevenue" class="text-2xl font-bold text-slate-900 mt-1">Rs 0.00</h3>
+            <p class="text-xs text-slate-500 mt-1"><span id="statSalesCount" class="font-semibold text-slate-800">0</span> completed sales</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-wallet"></i>
+          </div>
+        </div>
+
+        <!-- Low Stock / Out of Stock -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Critical Alerts</p>
+            <h3 id="statLowStock" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+            <p class="text-xs text-slate-500 mt-1"><span id="statOutOfStock" class="font-semibold text-rose-600">0</span> Out of Stock</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button onclick="openAddProductModal()" class="p-3 bg-white hover:bg-indigo-50 border border-slate-200 rounded-xl transition flex items-center space-x-3 text-left shadow-sm">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-plus"></i></div>
+          <div><div class="text-xs font-bold text-slate-800">Add Product</div><div class="text-[10px] text-slate-500">Catalog entry</div></div>
+        </button>
+        <button onclick="switchTab('pos')" class="p-3 bg-white hover:bg-emerald-50 border border-slate-200 rounded-xl transition flex items-center space-x-3 text-left shadow-sm">
+          <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-cash-register"></i></div>
+          <div><div class="text-xs font-bold text-slate-800">New Sale</div><div class="text-[10px] text-slate-500">POS Checkout</div></div>
+        </button>
+        <button onclick="openCreatePOModal()" class="p-3 bg-white hover:bg-blue-50 border border-slate-200 rounded-xl transition flex items-center space-x-3 text-left shadow-sm">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-file-invoice"></i></div>
+          <div><div class="text-xs font-bold text-slate-800">Purchase Order</div><div class="text-[10px] text-slate-500">Restock stock</div></div>
+        </button>
+        <button onclick="triggerUndo()" class="p-3 bg-white hover:bg-amber-50 border border-slate-200 rounded-xl transition flex items-center space-x-3 text-left shadow-sm">
+          <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-rotate-left"></i></div>
+          <div><div class="text-xs font-bold text-slate-800">Undo Action</div><div class="text-[10px] text-slate-500">Command Pattern</div></div>
+        </button>
+      </div>
+
+      <!-- Charts & Recent Activity -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Sales Trend Chart -->
+        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h4 class="text-sm font-bold text-slate-900">7-Day Sales Trend</h4>
+              <p class="text-xs text-slate-500">Daily revenue performance</p>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg">Real-Time</span>
+          </div>
+          <div class="h-64">
+            <canvas id="salesTrendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Category Breakdown -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col">
+          <h4 class="text-sm font-bold text-slate-900 mb-1">Sales by Category</h4>
+          <p class="text-xs text-slate-500 mb-4">Polymorphic category distribution</p>
+          <div class="flex-1 flex items-center justify-center">
+            <div class="w-52 h-52">
+              <canvas id="categoryPieChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: PRODUCTS & INVENTORY -->
+    <!-- ======================================================== -->
+    <section id="view-products" class="tab-content hidden space-y-5">
+      <!-- Search & Filters Toolbar -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- Search bar -->
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+          <input type="text" id="productSearchInput" oninput="filterProducts()" placeholder="Search product by name, brand, or ID..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+        </div>
+
+        <!-- Filter pills -->
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="categoryFilter" onchange="filterProducts()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All Categories</option>
+            <option value="Electronic">Electronics (18% GST)</option>
+            <option value="Grocery">Grocery (5% GST)</option>
+            <option value="General">General / Misc</option>
+          </select>
+
+          <select id="stockFilter" onchange="filterProducts()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All Stock Levels</option>
+            <option value="LOW">Low Stock Alert</option>
+            <option value="OUT">Out of Stock</option>
+            <option value="OPTIMAL">In Stock (Good)</option>
+          </select>
+
+          <button onclick="openAddProductModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition shadow-sm flex items-center space-x-2">
+            <i class="fa-solid fa-plus"></i><span>Add Product</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Products Table -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-5 py-3">Product</th>
+                <th class="px-4 py-3">Category</th>
+                <th class="px-4 py-3 text-right">Price (Base)</th>
+                <th class="px-4 py-3 text-right">Tax (Rate)</th>
+                <th class="px-4 py-3 text-right">Price w/ Tax</th>
+                <th class="px-4 py-3 text-center">Stock</th>
+                <th class="px-4 py-3 text-center">Status</th>
+                <th class="px-5 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+        <div id="noProductsFound" class="hidden text-center py-12 text-slate-400">
+          <i class="fa-solid fa-box-open text-4xl mb-2"></i>
+          <p class="text-sm">No matching products found.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: POS & BILLING -->
+    <!-- ======================================================== -->
+    <section id="view-pos" class="tab-content hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left: Product Catalog Selector (7 cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div class="relative flex-1 mr-4">
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+              <input type="text" id="posSearchInput" oninput="filterPOSProducts()" placeholder="Quick scan / search product..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <select id="posCategoryFilter" onchange="filterPOSProducts()" class="bg-slate-50 border border-slate-200 text-xs font-semibold py-2 px-3 rounded-xl focus:outline-none">
+              <option value="ALL">All Categories</option>
+              <option value="Electronic">Electronics</option>
+              <option value="Grocery">Grocery</option>
+              <option value="General">General</option>
+            </select>
+          </div>
+
+          <!-- Product Grid -->
+          <div id="posProductGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[580px] overflow-y-auto pr-1 custom-scrollbar">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Right: Live Cart & Bill Generator (5 cols) -->
+        <div class="lg:col-span-5">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-full sticky top-24">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+              <div>
+                <h3 class="font-bold text-slate-900 text-base">Point of Sale Register</h3>
+                <p class="text-xs text-slate-500">Itemised Billing & Receipt Engine</p>
+              </div>
+              <button onclick="clearCart()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-1 rounded hover:bg-rose-50 transition">
+                Clear Cart
+              </button>
+            </div>
+
+            <!-- Customer Details -->
+            <div class="py-3 border-b border-slate-100 space-y-2">
+              <label class="block text-xs font-semibold text-slate-700">Customer Name</label>
+              <input type="text" id="posCustomerName" placeholder="Walk-in Customer (e.g. John Doe)" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- Cart Items List -->
+            <div id="posCartItems" class="flex-1 min-h-[200px] max-h-[260px] overflow-y-auto divide-y divide-slate-100 py-2 custom-scrollbar">
+              <div class="text-center py-10 text-slate-400">
+                <i class="fa-solid fa-basket-shopping text-3xl mb-2 text-slate-300"></i>
+                <p class="text-xs">Your cart is empty. Add products to begin checkout.</p>
+              </div>
+            </div>
+
+            <!-- Discount Section -->
+            <div class="py-3 border-t border-slate-100 space-y-2">
+              <div class="flex items-center justify-between text-xs font-semibold text-slate-700">
+                <span>Discount Engine</span>
+                <div class="flex space-x-1">
+                  <button type="button" onclick="setDiscountType(0)" id="discBtnNone" class="px-2 py-0.5 rounded text-[11px] bg-indigo-600 text-white font-bold">None</button>
+                  <button type="button" onclick="setDiscountType(1)" id="discBtnPercent" class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">Percent %</button>
+                  <button type="button" onclick="setDiscountType(2)" id="discBtnFixed" class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">Fixed (Rs)</button>
+                </div>
+              </div>
+              <div id="discountValueInputRow" class="hidden flex items-center space-x-2">
+                <input type="number" id="posDiscountValue" oninput="calculateBillTotals()" min="0" placeholder="0" class="flex-1 px-3 py-1 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <span id="discountUnitLabel" class="text-xs font-bold text-slate-500">%</span>
+              </div>
+            </div>
+
+            <!-- Bill Calculation Summary -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-1.5 text-xs text-slate-600">
+              <div class="flex justify-between">
+                <span>Subtotal (Net):</span>
+                <span id="posSubtotal" class="font-semibold text-slate-800">Rs 0.00</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Tax Breakdown (GST):</span>
+                <span id="posTotalTax" class="font-semibold text-emerald-600">Rs 0.00</span>
+              </div>
+              <div class="flex justify-between text-amber-600">
+                <span>Total Discount:</span>
+                <span id="posTotalDiscount" class="font-semibold">- Rs 0.00</span>
+              </div>
+              <div class="flex justify-between text-sm font-bold text-slate-900 pt-2 border-t border-slate-200">
+                <span>GRAND TOTAL:</span>
+                <span id="posGrandTotal" class="text-indigo-600 text-base">Rs 0.00</span>
+              </div>
+            </div>
+
+            <!-- Checkout Button -->
+            <button onclick="submitCheckout()" id="btnCheckout" disabled class="mt-4 w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow-md shadow-emerald-100 flex items-center justify-center space-x-2">
+              <i class="fa-solid fa-receipt"></i><span>Complete Sale & Generate Bill</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Past Sales History Section -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">Recent Transactions & Invoices</h4>
+            <p class="text-xs text-slate-500">View bill receipts or process customer refunds</p>
+          </div>
+          <button onclick="downloadCSVReport('sales')" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition flex items-center space-x-2">
+            <i class="fa-solid fa-file-csv"></i><span>Export Sales CSV</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3">Bill No</th>
+                <th class="px-4 py-3">Date</th>
+                <th class="px-4 py-3">Customer</th>
+                <th class="px-4 py-3">Items</th>
+                <th class="px-4 py-3 text-right">Total</th>
+                <th class="px-4 py-3 text-center">Status</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="salesHistoryTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: STOCK ALERTS & REORDER -->
+    <!-- ======================================================== -->
+    <section id="view-alerts" class="tab-content hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Out of stock card -->
+        <div class="bg-rose-50 border border-rose-200 p-4 rounded-2xl">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center text-lg">
+              <i class="fa-solid fa-ban"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-rose-800 uppercase">Out of Stock</p>
+              <h3 id="alertOutOfStockCount" class="text-2xl font-bold text-rose-900">0</h3>
+            </div>
+          </div>
+          <p class="text-xs text-rose-700 mt-2">Zero inventory remaining. Requires immediate replenishment.</p>
+        </div>
+
+        <!-- Low stock card -->
+        <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-amber-800 uppercase">Critically Low Stock</p>
+              <h3 id="alertLowStockCount" class="text-2xl font-bold text-amber-900">0</h3>
+            </div>
+          </div>
+          <p class="text-xs text-amber-700 mt-2">Quantity has fallen below the safety reorder threshold.</p>
+        </div>
+
+        <!-- Expiring card -->
+        <div class="bg-purple-50 border border-purple-200 p-4 rounded-2xl">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500 text-white flex items-center justify-center text-lg">
+              <i class="fa-solid fa-calendar-xmark"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-purple-800 uppercase">Expiring Batches (FEFO)</p>
+              <h3 id="alertExpiringCount" class="text-2xl font-bold text-purple-900">0</h3>
+            </div>
+          </div>
+          <p class="text-xs text-purple-700 mt-2">Grocery batches approaching expiry within 30 days.</p>
+        </div>
+      </div>
+
+      <!-- Auto Reorder Recommendation Table -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">Automated Reorder Recommendations</h4>
+            <p class="text-xs text-slate-500">Calculates shortage and recommends optimal order units based on minimum safety stock & lead time.</p>
+          </div>
+          <button onclick="downloadCSVReport('lowstock')" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition flex items-center space-x-2">
+            <i class="fa-solid fa-file-csv"></i><span>Export Reorder List CSV</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3">Product</th>
+                <th class="px-4 py-3">Category</th>
+                <th class="px-4 py-3 text-center">Current Stock</th>
+                <th class="px-4 py-3 text-center">Min Threshold</th>
+                <th class="px-4 py-3 text-center">Recommended Reorder</th>
+                <th class="px-4 py-3">Preferred Supplier</th>
+                <th class="px-4 py-3 text-right">Est. Restock Cost</th>
+                <th class="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="reorderTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 5: SUPPLIERS & PURCHASE ORDERS -->
+    <!-- ======================================================== -->
+    <section id="view-suppliers" class="tab-content hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Supplier Directory (1 col) -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-slate-900 text-sm">Suppliers Directory</h4>
+            <button onclick="openAddSupplierModal()" class="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2.5 py-1.5 rounded-lg transition">
+              + New Supplier
+            </button>
+          </div>
+          <div id="suppliersList" class="space-y-3 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Purchase Orders (2 cols) -->
+        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div class="flex justify-between items-center">
+            <div>
+              <h4 class="font-bold text-slate-900 text-sm">Purchase Orders (PO)</h4>
+              <p class="text-xs text-slate-500">Track pending vendor deliveries and restock inventory</p>
+            </div>
+            <button onclick="openCreatePOModal()" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl transition shadow-sm flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i><span>Create PO</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-700">
+              <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="px-4 py-3">PO #</th>
+                  <th class="px-4 py-3">Supplier</th>
+                  <th class="px-4 py-3">Order / Due</th>
+                  <th class="px-4 py-3">Items Ordered</th>
+                  <th class="px-4 py-3 text-right">Cost</th>
+                  <th class="px-4 py-3 text-center">Status</th>
+                  <th class="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="poTableBody" class="divide-y divide-slate-100">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 6: ANALYTICS & DEMAND FORECASTING -->
+    <!-- ======================================================== -->
+    <section id="view-analytics" class="tab-content hidden space-y-6">
+      <!-- Profit & Margin KPI Row -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+          <p class="text-xs text-slate-500 font-semibold uppercase">Gross Revenue</p>
+          <h3 id="anaRevenue" class="text-xl font-bold text-slate-900 mt-1">Rs 0.00</h3>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+          <p class="text-xs text-slate-500 font-semibold uppercase">Estimated COGS</p>
+          <h3 id="anaCost" class="text-xl font-bold text-slate-600 mt-1">Rs 0.00</h3>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+          <p class="text-xs text-slate-500 font-semibold uppercase">Gross Profit</p>
+          <h3 id="anaProfit" class="text-xl font-bold text-emerald-600 mt-1">Rs 0.00</h3>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+          <p class="text-xs text-slate-500 font-semibold uppercase">Profit Margin</p>
+          <h3 id="anaMargin" class="text-xl font-bold text-indigo-600 mt-1">0%</h3>
+        </div>
+      </div>
+
+      <!-- Top 5 Best-Selling Products -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <h4 class="font-bold text-slate-900 text-sm">Top 5 Best-Selling Products</h4>
+        <div class="h-64">
+          <canvas id="topProductsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 7-day Demand Forecasting Table -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm">7-Day Moving Average Demand Forecast</h4>
+          <p class="text-xs text-slate-500">Estimates future run-rate from recent sales velocity and predicts days of remaining stock before exhaustion.</p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3">Product Name</th>
+                <th class="px-4 py-3 text-center">Current Stock</th>
+                <th class="px-4 py-3 text-center">Avg Daily Velocity</th>
+                <th class="px-4 py-3 text-center">Estimated Runway</th>
+                <th class="px-4 py-3 text-center">Supplier Lead Time</th>
+                <th class="px-4 py-3 text-center">Urgency</th>
+              </tr>
+            </thead>
+            <tbody id="forecastTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 7: AUDIT TRAIL & UNDO / REDO -->
+    <!-- ======================================================== -->
+    <section id="view-audit" class="tab-content hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">Immutable Transaction Audit Log</h4>
+            <p class="text-xs text-slate-500">Records all product additions, updates, deletions, stock adjustments, and sales transactions.</p>
+          </div>
+          <!-- Undo button -->
+          <button onclick="triggerUndo()" class="text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl transition shadow-sm flex items-center space-x-1.5">
+            <i class="fa-solid fa-rotate-left"></i><span>Undo Last Stock Change</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto max-h-[550px] custom-scrollbar">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200 sticky top-0">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">Timestamp</th>
+                <th class="px-4 py-3">Action</th>
+                <th class="px-4 py-3">User</th>
+                <th class="px-4 py-3">Stock Delta</th>
+                <th class="px-4 py-3">Description & Notes</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 8: ADMIN & REPORTS -->
+    <!-- ======================================================== -->
+    <section id="view-admin" class="tab-content hidden space-y-6">
+      <!-- Reports Export Center -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <h4 class="font-bold text-slate-900 text-sm">Automated Reports & CSV Data Export</h4>
+        <p class="text-xs text-slate-500">Generate on-demand CSV spreadsheets compatible with Excel or external accounting tools.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <button onclick="downloadCSVReport('inventory')" class="p-4 border border-slate-200 hover:border-indigo-500 rounded-xl transition text-left flex flex-col justify-between hover:shadow-sm">
+            <div>
+              <i class="fa-solid fa-table-list text-indigo-600 text-lg mb-2"></i>
+              <div class="text-sm font-bold text-slate-900">Inventory Valuation</div>
+              <div class="text-xs text-slate-500 mt-1">Full product portfolio & stock value</div>
+            </div>
+            <div class="mt-3 text-xs font-semibold text-indigo-600 flex items-center space-x-1">
+              <span>Download CSV</span><i class="fa-solid fa-arrow-down text-[10px]"></i>
+            </div>
+          </button>
+
+          <button onclick="downloadCSVReport('lowstock')" class="p-4 border border-slate-200 hover:border-rose-500 rounded-xl transition text-left flex flex-col justify-between hover:shadow-sm">
+            <div>
+              <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg mb-2"></i>
+              <div class="text-sm font-bold text-slate-900">Low Stock & Reorder</div>
+              <div class="text-xs text-slate-500 mt-1">Items at or below safety threshold</div>
+            </div>
+            <div class="mt-3 text-xs font-semibold text-rose-600 flex items-center space-x-1">
+              <span>Download CSV</span><i class="fa-solid fa-arrow-down text-[10px]"></i>
+            </div>
+          </button>
+
+          <button onclick="downloadCSVReport('sales')" class="p-4 border border-slate-200 hover:border-emerald-500 rounded-xl transition text-left flex flex-col justify-between hover:shadow-sm">
+            <div>
+              <i class="fa-solid fa-receipt text-emerald-600 text-lg mb-2"></i>
+              <div class="text-sm font-bold text-slate-900">Sales & Billing Log</div>
+              <div class="text-xs text-slate-500 mt-1">All sales transactions & refunds</div>
+            </div>
+            <div class="mt-3 text-xs font-semibold text-emerald-600 flex items-center space-x-1">
+              <span>Download CSV</span><i class="fa-solid fa-arrow-down text-[10px]"></i>
+            </div>
+          </button>
+
+          <button onclick="downloadCSVReport('supplier')" class="p-4 border border-slate-200 hover:border-blue-500 rounded-xl transition text-left flex flex-col justify-between hover:shadow-sm">
+            <div>
+              <i class="fa-solid fa-truck-fast text-blue-600 text-lg mb-2"></i>
+              <div class="text-sm font-bold text-slate-900">Supplier Directory</div>
+              <div class="text-xs text-slate-500 mt-1">Vendor contacts & addresses</div>
+            </div>
+            <div class="mt-3 text-xs font-semibold text-blue-600 flex items-center space-x-1">
+              <span>Download CSV</span><i class="fa-solid fa-arrow-down text-[10px]"></i>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Backup & Restore Center -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <h4 class="font-bold text-slate-900 text-sm">Data Persistence, Backup & Recovery</h4>
+        <p class="text-xs text-slate-500">Safely snapshot all CSV records to `data/backup/` or restore from the latest snapshot.</p>
+        <div class="flex flex-wrap gap-3">
+          <button onclick="triggerBackup()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center space-x-2">
+            <i class="fa-solid fa-cloud-arrow-up"></i><span>Create Instant Backup</span>
+          </button>
+          <button onclick="triggerRestore()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition border border-slate-200 flex items-center space-x-2">
+            <i class="fa-solid fa-cloud-arrow-down"></i><span>Restore From Backup</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- User Accounts Management (Admin Only) -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">System User Accounts</h4>
+            <p class="text-xs text-slate-500">Role-based access permissions: Admin, Manager, Staff</p>
+          </div>
+          <button onclick="openAddUserModal()" class="text-xs font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition">
+            + New User
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">Username</th>
+                <th class="px-4 py-3">Full Name</th>
+                <th class="px-4 py-3">Role</th>
+                <th class="px-4 py-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- MODALS -->
+  <!-- ======================================================== -->
+
+  <!-- ADD / EDIT PRODUCT MODAL -->
+  <div id="productModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 overflow-y-auto max-h-[90vh]">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 id="productModalTitle" class="text-base font-bold text-slate-900">Add New Product</h3>
+        <button onclick="closeModal('productModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="productForm" onsubmit="handleProductSubmit(event)" class="space-y-3">
+        <input type="hidden" id="formProductId">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Product Category</label>
+          <select id="formProductTag" onchange="toggleCategorySpecificFields(this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ELEC">Electronic (18% GST, Brand & Warranty)</option>
+            <option value="GROC">Grocery (5% GST, FEFO Batch Expiry)</option>
+            <option value="GEN">General / Apparel (12% GST)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Product Name *</label>
+          <input type="text" id="formProductName" required placeholder="e.g. Dell XPS 15 Laptop" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Base Price (Rs) *</label>
+            <input type="number" id="formProductPrice" step="0.01" min="0.01" required placeholder="1499.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Initial Stock Quantity *</label>
+            <input type="number" id="formProductQuantity" min="0" required placeholder="20" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Min Threshold Alert</label>
+            <input type="number" id="formProductMinStock" min="0" value="5" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Reorder Quantity</label>
+            <input type="number" id="formProductReorderQty" min="1" value="20" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Supplier Code</label>
+          <select id="formProductSupplier" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <!-- Electronic-specific fields -->
+        <div id="fieldGroupElectronic" class="space-y-3 pt-2 border-t border-slate-100">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Brand</label>
+              <input type="text" id="formElecBrand" placeholder="e.g. Apple, Sony, Dell" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Warranty (Months)</label>
+              <input type="text" id="formElecWarranty" value="12" placeholder="12" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+          </div>
+        </div>
+
+        <!-- Grocery-specific fields -->
+        <div id="fieldGroupGrocery" class="hidden space-y-3 pt-2 border-t border-slate-100">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tax Rate (e.g. 0.05 for 5%)</label>
+              <input type="number" id="formGrocTax" step="0.01" value="0.05" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Batch Expiry Date</label>
+              <input type="date" id="formGrocExpiry" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+          </div>
+        </div>
+
+        <!-- General-specific fields -->
+        <div id="fieldGroupGeneral" class="hidden space-y-3 pt-2 border-t border-slate-100">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Sub-Category</label>
+              <input type="text" id="formGenSub" placeholder="Apparel, Furniture, etc." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tax Rate (e.g. 0.12 for 12%)</label>
+              <input type="number" id="formGenTax" step="0.01" value="0.12" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-4">
+          <button type="button" onclick="closeModal('productModal')" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- QUICK STOCK ADJUST MODAL -->
+  <div id="stockAdjustModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">Stock Adjustment</h3>
+        <button onclick="closeModal('stockAdjustModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <div id="adjustProductName" class="text-sm font-bold text-slate-900">Product Name</div>
+          <div id="adjustProductCurrentStock" class="text-xs text-slate-500">Current Stock: 0</div>
+        </div>
+
+        <div class="flex space-x-2">
+          <button type="button" onclick="setAdjustAction('add')" id="btnAdjustAdd" class="flex-1 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white">
+            <i class="fa-solid fa-plus mr-1"></i> Add Stock
+          </button>
+          <button type="button" onclick="setAdjustAction('remove')" id="btnAdjustRemove" class="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700">
+            <i class="fa-solid fa-minus mr-1"></i> Remove Stock
+          </button>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Units Quantity</label>
+          <input type="number" id="adjustUnits" min="1" value="5" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Reason (Audit Logged)</label>
+          <input type="text" id="adjustReason" placeholder="e.g. Shipment arrival / Damaged inventory" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button onclick="closeModal('stockAdjustModal')" class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600">Cancel</button>
+          <button onclick="submitStockAdjust()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm">Save Adjustment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRINTABLE RECEIPT MODAL -->
+  <div id="receiptModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 max-h-[95vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="text-sm font-bold text-slate-900">Sale Receipt</h3>
+        <button onclick="closeModal('receiptModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <!-- Printable Area -->
+      <div id="printableReceipt" class="bg-white font-mono text-xs border border-dashed border-slate-300 p-5 rounded-xl space-y-3">
+        <div class="text-center pb-2 border-b border-slate-200 space-y-1">
+          <h2 class="text-base font-bold tracking-wider">STOCKMASTER RETAIL</h2>
+          <p class="text-[10px] text-slate-500">INVENTORY & STOCK MONITORING SYSTEM</p>
+          <p class="text-[10px] text-slate-400">Official Bill / Sales Receipt</p>
+        </div>
+
+        <div class="grid grid-cols-2 text-[11px] gap-1">
+          <div><span class="text-slate-500">Bill No:</span> <strong id="recBillNo">#0</strong></div>
+          <div class="text-right"><span class="text-slate-500">Date:</span> <strong id="recDate">2026-10-22</strong></div>
+          <div><span class="text-slate-500">Customer:</span> <span id="recCustomer">Guest</span></div>
+          <div class="text-right"><span class="text-slate-500">Cashier:</span> <span id="recStaff">staff1</span></div>
+        </div>
+
+        <table class="w-full text-left text-[11px] border-t border-b border-slate-200 py-1">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500">
+              <th class="py-1">Item</th>
+              <th class="text-center py-1">Qty</th>
+              <th class="text-right py-1">Rate</th>
+              <th class="text-right py-1">Tax</th>
+              <th class="text-right py-1">Total</th>
+            </tr>
+          </thead>
+          <tbody id="recItemsBody" class="divide-y divide-slate-100">
+            <!-- Dynamic Items -->
+          </tbody>
+        </table>
+
+        <div class="space-y-1 text-[11px] text-right">
+          <div>Subtotal: <span id="recSubtotal" class="font-bold">Rs 0.00</span></div>
+          <div>GST Tax: <span id="recTax" class="font-bold">Rs 0.00</span></div>
+          <div>Discount: <span id="recDiscount" class="font-bold text-amber-600">- Rs 0.00</span></div>
+          <div class="text-sm font-bold border-t border-slate-300 pt-1 text-slate-900">
+            TOTAL PAID: <span id="recGrandTotal">Rs 0.00</span>
+          </div>
+        </div>
+
+        <div id="recRefundedNotice" class="hidden text-center p-1.5 bg-rose-50 text-rose-600 font-bold text-xs rounded">
+          ** THIS SALE HAS BEEN REFUNDED **
+        </div>
+
+        <div class="text-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+          Thank you for shopping with us!<br>Please retain this receipt for warranty and returns.
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeModal('receiptModal')" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600">Close</button>
+        <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center space-x-1.5">
+          <i class="fa-solid fa-print"></i><span>Print Receipt</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE PURCHASE ORDER MODAL -->
+  <div id="poModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">Create Purchase Order</h3>
+        <button onclick="closeModal('poModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="poForm" onsubmit="handlePOSubmit(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Select Supplier *</label>
+          <select id="poFormSupplier" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Product to Order *</label>
+            <select id="poFormProduct" onchange="autoFillPOCost(this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Order Quantity *</label>
+            <input type="number" id="poFormQty" min="1" value="25" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Estimated Unit Cost (Rs)</label>
+            <input type="number" id="poFormUnitCost" step="0.01" min="0" value="0.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Lead Time (Days)</label>
+            <input type="number" id="poFormLeadDays" min="1" value="7" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">PO Notes</label>
+          <input type="text" id="poFormNotes" placeholder="Urgent festive restock" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3">
+          <button type="button" onclick="closeModal('poModal')" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm">Issue Purchase Order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD SUPPLIER MODAL -->
+  <div id="supplierModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">Add Supplier</h3>
+        <button onclick="closeModal('supplierModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="supplierForm" onsubmit="handleSupplierSubmit(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Supplier Code *</label>
+          <input type="text" id="supCode" placeholder="e.g. SUP004" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Company / Name *</label>
+          <input type="text" id="supName" placeholder="e.g. Global Tech Distributors" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Contact Person</label>
+          <input type="text" id="supContact" placeholder="e.g. John Doe" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+          <input type="email" id="supEmail" placeholder="vendor@domain.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Address</label>
+          <input type="text" id="supAddress" placeholder="City, State" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" onclick="closeModal('supplierModal')" class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm">Save Supplier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD USER MODAL -->
+  <div id="userModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">Add System User</h3>
+        <button onclick="closeModal('userModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="userForm" onsubmit="handleUserSubmit(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Username *</label>
+          <input type="text" id="newUserUsername" placeholder="e.g. manager2" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+          <input type="text" id="newUserFullName" placeholder="e.g. Alex Johnson" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">System Role</label>
+          <select id="newUserRole" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            <option value="Staff">Staff (POS & View)</option>
+            <option value="Manager">Manager (Stock, Orders & Reports)</option>
+            <option value="Admin">Admin (Full Control)</option>
+          </select>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" onclick="closeModal('userModal')" class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
+
+  <!-- ======================================================== -->
+  <!-- FRONTEND APPLICATION SCRIPT -->
+  <!-- ======================================================== -->
+  <script>
+    // State variables
+    let currentRole = "Admin";
+    let currentUser = { username: "admin", fullName: "System Administrator", role: "Admin" };
+    let rawProducts = [];
+    let rawSuppliers = [];
+    let rawPOs = [];
+    let rawSales = [];
+    let rawAudit = [];
+    let cart = []; // [{productId, name, price, taxRate, quantity}]
+    let discountType = 0; // 0: None, 1: %, 2: Fixed
+
+    // Active Stock Adjust product ID
+    let currentAdjustProductId = null;
+    let currentAdjustAction = "add";
+
+    // Charts instances
+    let salesChartInstance = null;
+    let categoryPieInstance = null;
+    let topProductsChartInstance = null;
+
+    // Format currency
+    function formatMoney(amount) {
+      return 'Rs ' + Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Toast notifications
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const isSuccess = type === 'success';
+      toast.className = `p-4 rounded-xl text-white text-xs font-bold shadow-xl flex items-center space-x-2.5 transition transform duration-300 translate-y-2 ${isSuccess ? 'bg-emerald-600' : 'bg-rose-600'}`;
+      toast.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-check-circle' : 'fa-circle-exclamation'} text-sm"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.remove('translate-y-2'), 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Navigation Switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(el => {
+        el.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+        el.classList.add('hover:bg-slate-800', 'hover:text-white');
+      });
+
+      const target = document.getElementById(`view-${tabId}`);
+      const btn = document.getElementById(`tab-${tabId}`);
+      if (target) target.classList.remove('hidden');
+      if (btn) {
+        btn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+        btn.classList.remove('hover:bg-slate-800');
+      }
+
+      if (tabId === 'dashboard') loadDashboard();
+      else if (tabId === 'products') loadProducts();
+      else if (tabId === 'pos') loadPOS();
+      else if (tabId === 'alerts') loadAlerts();
+      else if (tabId === 'suppliers') loadSuppliers();
+      else if (tabId === 'analytics') loadAnalytics();
+      else if (tabId === 'audit') loadAudit();
+      else if (tabId === 'admin') loadAdmin();
+    }
+
+    // Role Switcher
+    function changeActiveRole(newRole) {
+      currentRole = newRole;
+      if (newRole === 'Admin') {
+        currentUser = { username: "admin", fullName: "System Administrator", role: "Admin" };
+      } else if (newRole === 'Manager') {
+        currentUser = { username: "manager1", fullName: "Store Manager", role: "Manager" };
+      } else {
+        currentUser = { username: "staff1", fullName: "Sales Staff", role: "Staff" };
+      }
+      document.getElementById('userAvatar').innerText = currentUser.username.substring(0, 2).toUpperCase();
+      document.getElementById('userFullName').innerText = currentUser.fullName;
+      document.getElementById('userRoleBadge').innerText = currentUser.role;
+      showToast(`Switched active profile to ${currentUser.role} (${currentUser.username})`);
+    }
+
+    // Modal helpers
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // API Helpers
+    async function apiGet(endpoint) {
+      try {
+        const res = await fetch(endpoint);
+        return await res.json();
+      } catch (err) {
+        console.error("API GET Error:", err);
+        return null;
+      }
+    }
+
+    async function apiPost(endpoint, data) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        return await res.json();
+      } catch (err) {
+        console.error("API POST Error:", err);
+        return { success: false, message: "Network connection error" };
+      }
+    }
+
+    // ==========================================
+    // 1. DASHBOARD LOGIC
+    // ==========================================
+    async function loadDashboard() {
+      const status = await apiGet('/api/status');
+      if (status && status.counts) {
+        const c = status.counts;
+        document.getElementById('statTotalProducts').innerText = c.totalProducts;
+        document.getElementById('statStockUnits').innerText = c.totalStockUnits;
+        document.getElementById('statInventoryValue').innerText = formatMoney(c.totalInventoryValue);
+        document.getElementById('statTotalRevenue').innerText = formatMoney(c.totalRevenue);
+        document.getElementById('statSalesCount').innerText = c.totalSalesCount;
+        document.getElementById('statLowStock').innerText = c.lowStockCount;
+        document.getElementById('statOutOfStock').innerText = c.outOfStockCount;
+
+        // Alerts badge
+        const badge = document.getElementById('headerAlertBadge');
+        const tabBadge = document.getElementById('tabAlertCount');
+        const globalBanner = document.getElementById('globalAlertBanner');
+        if (c.lowStockCount > 0) {
+          badge.innerText = c.lowStockCount;
+          badge.classList.remove('hidden');
+          tabBadge.innerText = c.lowStockCount;
+          tabBadge.classList.remove('hidden');
+          globalBanner.classList.remove('hidden');
+          document.getElementById('globalAlertMsg').innerText = `${c.outOfStockCount} item(s) Out of Stock and ${c.lowStockCount - c.outOfStockCount} item(s) below minimum safety reorder threshold.`;
+        } else {
+          badge.classList.add('hidden');
+          tabBadge.classList.add('hidden');
+          globalBanner.classList.add('hidden');
+        }
+      }
+      renderDashboardCharts();
+    }
+
+    async function renderDashboardCharts() {
+      const ana = await apiGet('/api/analytics');
+      if (!ana) return;
+
+      // 1. Sales Trend Line Chart
+      const ctxTrend = document.getElementById('salesTrendChart').getContext('2d');
+      if (salesChartInstance) salesChartInstance.destroy();
+      salesChartInstance = new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+          labels: ana.dailyChart.labels,
+          datasets: [{
+            label: 'Daily Revenue (Rs)',
+            data: ana.dailyChart.values,
+            borderColor: '#4f46e5',
+            backgroundColor: 'rgba(79, 70, 229, 0.08)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointBackgroundColor: '#4f46e5',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: '#f1f5f9' },
+              ticks: { callback: v => 'Rs ' + v }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      // 2. Category Breakdown Pie Chart
+      const ctxPie = document.getElementById('categoryPieChart').getContext('2d');
+      if (categoryPieInstance) categoryPieInstance.destroy();
+      categoryPieInstance = new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+          labels: ana.categoryBreakdown.labels.length ? ana.categoryBreakdown.labels : ['No Sales Yet'],
+          datasets: [{
+            data: ana.categoryBreakdown.values.length ? ana.categoryBreakdown.values : [1],
+            backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }
+          },
+          cutout: '70%'
+        }
+      });
+    }
+
+    // ==========================================
+    // 2. PRODUCTS & INVENTORY LOGIC
+    // ==========================================
+    async function loadProducts() {
+      rawProducts = await apiGet('/api/products') || [];
+      filterProducts();
+    }
+
+    function filterProducts() {
+      const q = (document.getElementById('productSearchInput').value || '').toLowerCase();
+      const cat = document.getElementById('categoryFilter').value;
+      const stock = document.getElementById('stockFilter').value;
+
+      const filtered = rawProducts.filter(p => {
+        const matchesQ = p.name.toLowerCase().includes(q) ||
+                         (p.brand && p.brand.toLowerCase().includes(q)) ||
+                         p.id.toString() === q;
+        const matchesCat = (cat === 'ALL') || (p.category === cat);
+        let matchesStock = true;
+        if (stock === 'LOW') matchesStock = p.isLowStock && !p.isOutOfStock;
+        else if (stock === 'OUT') matchesStock = p.isOutOfStock;
+        else if (stock === 'OPTIMAL') matchesStock = !p.isLowStock && !p.isOutOfStock;
+
+        return matchesQ && matchesCat && matchesStock;
+      });
+
+      renderProductsTable(filtered);
+    }
+
+    function renderProductsTable(products) {
+      const tbody = document.getElementById('productsTableBody');
+      const emptyMsg = document.getElementById('noProductsFound');
+      tbody.innerHTML = '';
+
+      if (!products.length) {
+        emptyMsg.classList.remove('hidden');
+        return;
+      }
+      emptyMsg.classList.add('hidden');
+
+      products.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+
+        // Category Tag Badge
+        let catBadge = `<span class="px-2 py-0.5 text-[11px] font-bold rounded-lg bg-slate-100 text-slate-700">${p.category}</span>`;
+        if (p.tag === 'ELEC') catBadge = `<span class="px-2 py-0.5 text-[11px] font-bold rounded-lg bg-blue-50 text-blue-700">Electronic</span>`;
+        else if (p.tag === 'GROC') catBadge = `<span class="px-2 py-0.5 text-[11px] font-bold rounded-lg bg-emerald-50 text-emerald-700">Grocery</span>`;
+        else if (p.tag === 'GEN') catBadge = `<span class="px-2 py-0.5 text-[11px] font-bold rounded-lg bg-purple-50 text-purple-700">General</span>`;
+
+        // Stock Status Badge
+        let stockBadge = `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-50 text-emerald-700">In Stock</span>`;
+        if (p.isOutOfStock) {
+          stockBadge = `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-rose-50 text-rose-700">Out of Stock</span>`;
+        } else if (p.isLowStock) {
+          stockBadge = `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-50 text-amber-700">Low Stock (${p.minStockLevel})</span>`;
+        }
+
+        // Expiry notice for grocery
+        let expiryHtml = '';
+        if (p.tag === 'GROC' && p.hasExpiring) {
+          expiryHtml = `<div class="text-[10px] text-purple-600 font-bold mt-0.5"><i class="fa-solid fa-clock mr-1"></i>Expiring in ${p.daysLeftMin}d (FEFO)</div>`;
+        }
+
+        tr.innerHTML = `
+          <td class="px-5 py-3">
+            <div class="font-bold text-slate-900">${p.name}</div>
+            <div class="text-xs text-slate-400">ID: #${p.id} ${p.brand ? '• ' + p.brand : ''} ${p.supplierCode ? '• ' + p.supplierCode : ''}</div>
+            ${expiryHtml}
+          </td>
+          <td class="px-4 py-3">${catBadge}</td>
+          <td class="px-4 py-3 text-right font-medium text-slate-700">${formatMoney(p.price)}</td>
+          <td class="px-4 py-3 text-right text-xs text-slate-500">${(p.taxRate * 100).toFixed(0)}% (${formatMoney(p.taxAmount)})</td>
+          <td class="px-4 py-3 text-right font-bold text-slate-900">${formatMoney(p.priceWithTax)}</td>
+          <td class="px-4 py-3 text-center">
+            <span class="font-bold ${p.quantity === 0 ? 'text-rose-600' : (p.isLowStock ? 'text-amber-600' : 'text-slate-800')}">${p.quantity}</span>
+          </td>
+          <td class="px-4 py-3 text-center">${stockBadge}</td>
+          <td class="px-5 py-3 text-right space-x-1 whitespace-nowrap">
+            <button onclick="openStockAdjustModal(${p.id})" class="p-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Adjust Stock">
+              <i class="fa-solid fa-arrow-up-right-dots"></i>
+            </button>
+            <button onclick="deleteProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Delete Product">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Dynamic field toggle in Add Product Modal
+    function toggleCategorySpecificFields(tag) {
+      document.getElementById('fieldGroupElectronic').classList.add('hidden');
+      document.getElementById('fieldGroupGrocery').classList.add('hidden');
+      document.getElementById('fieldGroupGeneral').classList.add('hidden');
+
+      if (tag === 'ELEC') document.getElementById('fieldGroupElectronic').classList.remove('hidden');
+      else if (tag === 'GROC') document.getElementById('fieldGroupGrocery').classList.remove('hidden');
+      else document.getElementById('fieldGroupGeneral').classList.remove('hidden');
+    }
+
+    async function openAddProductModal() {
+      if (currentRole === 'Staff') {
+        showToast("Access Denied: Staff role cannot add new products.", "error");
+        return;
+      }
+      document.getElementById('productForm').reset();
+      document.getElementById('formProductId').value = '';
+      document.getElementById('productModalTitle').innerText = "Add New Product";
+      toggleCategorySpecificFields('ELEC');
+
+      // Populate suppliers dropdown
+      const sups = await apiGet('/api/suppliers') || [];
+      const supSelect = document.getElementById('formProductSupplier');
+      supSelect.innerHTML = '<option value="">None / Self</option>' + sups.map(s => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+
+      // Default grocery expiry to 1 year ahead
+      const nextYear = new Date();
+      nextYear.setFullYear(nextYear.getFullYear() + 1);
+      document.getElementById('formGrocExpiry').value = nextYear.toISOString().split('T')[0];
+
+      openModal('productModal');
+    }
+
+    async function handleProductSubmit(e) {
+      e.preventDefault();
+      const tag = document.getElementById('formProductTag').value;
+      const data = {
+        name: document.getElementById('formProductName').value.trim(),
+        price: parseFloat(document.getElementById('formProductPrice').value),
+        quantity: parseInt(document.getElementById('formProductQuantity').value),
+        tag: tag,
+        supplierCode: document.getElementById('formProductSupplier').value,
+        minStockLevel: parseInt(document.getElementById('formProductMinStock').value),
+        reorderQty: parseInt(document.getElementById('formProductReorderQty').value),
+        user: currentUser.username
+      };
+
+      if (tag === 'ELEC') {
+        data.brand = document.getElementById('formElecBrand').value.trim();
+        data.warranty = document.getElementById('formElecWarranty').value.trim() || '12';
+      } else if (tag === 'GROC') {
+        data.taxRate = parseFloat(document.getElementById('formGrocTax').value);
+        data.expiryDate = document.getElementById('formGrocExpiry').value;
+      } else {
+        data.subCategory = document.getElementById('formGenSub').value.trim() || 'General';
+        data.taxRate = parseFloat(document.getElementById('formGenTax').value);
+      }
+
+      const res = await apiPost('/api/products', data);
+      if (res.success) {
+        closeModal('productModal');
+        showToast(`Product '${data.name}' added successfully!`);
+        loadProducts();
+      } else {
+        showToast(res.message || "Failed to add product", "error");
+      }
+    }
+
+    async function deleteProduct(id, name) {
+      if (currentRole === 'Staff') {
+        showToast("Access Denied: Staff role cannot delete products.", "error");
+        return;
+      }
+      if (!confirm(`Are you sure you want to permanently delete '${name}'?`)) return;
+
+      try {
+        const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Deleted ${name}`);
+          loadProducts();
+        } else {
+          showToast(data.message || "Failed to delete", "error");
+        }
+      } catch (err) {
+        showToast("Network error", "error");
+      }
+    }
+
+    // Quick stock adjustment
+    function openStockAdjustModal(pid) {
+      if (currentRole === 'Staff') {
+        showToast("Access Denied: Staff role cannot adjust stock directly.", "error");
+        return;
+      }
+      const p = rawProducts.find(x => x.id === pid);
+      if (!p) return;
+      currentAdjustProductId = pid;
+      document.getElementById('adjustProductName').innerText = p.name;
+      document.getElementById('adjustProductCurrentStock').innerText = `Current Stock: ${p.quantity} units (${p.category})`;
+      document.getElementById('adjustUnits').value = 5;
+      document.getElementById('adjustReason').value = "Manual inventory adjustment";
+      setAdjustAction('add');
+      openModal('stockAdjustModal');
+    }
+
+    function setAdjustAction(action) {
+      currentAdjustAction = action;
+      const btnAdd = document.getElementById('btnAdjustAdd');
+      const btnRem = document.getElementById('btnAdjustRemove');
+      if (action === 'add') {
+        btnAdd.className = "flex-1 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm";
+        btnRem.className = "flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700";
+      } else {
+        btnRem.className = "flex-1 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white shadow-sm";
+        btnAdd.className = "flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700";
+      }
+    }
+
+    async function submitStockAdjust() {
+      const units = parseInt(document.getElementById('adjustUnits').value);
+      const reason = document.getElementById('adjustReason').value.trim() || "Manual adjustment";
+      if (!units || units <= 0) {
+        showToast("Enter a positive quantity", "error");
+        return;
+      }
+
+      const res = await apiPost(`/api/products/${currentAdjustProductId}/stock`, {
+        action: currentAdjustAction,
+        units: units,
+        reason: reason,
+        user: currentUser.username
+      });
+
+      if (res.success) {
+        closeModal('stockAdjustModal');
+        showToast(`Stock updated to ${res.newQuantity} units.`);
+        loadProducts();
+      } else {
+        showToast(res.message || "Adjustment failed", "error");
+      }
+    }
+
+    // ==========================================
+    // 3. POS & BILLING LOGIC
+    // ==========================================
+    async function loadPOS() {
+      rawProducts = await apiGet('/api/products') || [];
+      rawSales = await apiGet('/api/sales') || [];
+      filterPOSProducts();
+      renderCart();
+      renderSalesHistory();
+    }
+
+    function filterPOSProducts() {
+      const q = (document.getElementById('posSearchInput').value || '').toLowerCase();
+      const cat = document.getElementById('posCategoryFilter').value;
+      const grid = document.getElementById('posProductGrid');
+      grid.innerHTML = '';
+
+      const filtered = rawProducts.filter(p => {
+        const matchesQ = p.name.toLowerCase().includes(q) || (p.brand && p.brand.toLowerCase().includes(q));
+        const matchesCat = (cat === 'ALL') || (p.category === cat);
+        return matchesQ && matchesCat;
+      });
+
+      filtered.forEach(p => {
+        const card = document.createElement('div');
+        const isOut = p.quantity === 0;
+        card.className = `p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between transition ${isOut ? 'opacity-50' : 'hover:border-indigo-500 cursor-pointer'}`;
+
+        card.innerHTML = `
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">${p.category}</span>
+              <span class="text-xs font-bold ${isOut ? 'text-rose-600' : 'text-slate-600'}">Stock: ${p.quantity}</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-sm mt-1.5 leading-snug">${p.name}</h4>
+          </div>
+          <div class="mt-3 flex justify-between items-center pt-2 border-t border-slate-100">
+            <div>
+              <div class="text-xs font-bold text-indigo-600">${formatMoney(p.priceWithTax)}</div>
+              <div class="text-[10px] text-slate-400">Net: ${formatMoney(p.price)}</div>
+            </div>
+            <button onclick="addToCart(${p.id})" ${isOut ? 'disabled' : ''} class="px-2.5 py-1 text-xs font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg transition disabled:opacity-40">
+              + Add
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function addToCart(pid) {
+      const p = rawProducts.find(x => x.id === pid);
+      if (!p || p.quantity <= 0) {
+        showToast("Item is out of stock", "error");
+        return;
+      }
+
+      const existing = cart.find(x => x.productId === pid);
+      if (existing) {
+        if (existing.quantity >= p.quantity) {
+          showToast(`Cannot add more. Available stock is ${p.quantity}`, "error");
+          return;
+        }
+        existing.quantity += 1;
+      } else {
+        cart.push({
+          productId: p.id,
+          name: p.name,
+          unitPrice: p.price,
+          taxRate: p.taxRate,
+          taxAmount: p.taxAmount,
+          quantity: 1,
+          maxStock: p.quantity
+        });
+      }
+      renderCart();
+    }
+
+    function updateCartQty(pid, delta) {
+      const item = cart.find(x => x.productId === pid);
+      if (!item) return;
+      const newQty = item.quantity + delta;
+      if (newQty <= 0) {
+        cart = cart.filter(x => x.productId !== pid);
+      } else {
+        if (newQty > item.maxStock) {
+          showToast(`Maximum available stock reached (${item.maxStock})`, "error");
+          return;
+        }
+        item.quantity = newQty;
+      }
+      renderCart();
+    }
+
+    function clearCart() {
+      cart = [];
+      renderCart();
+    }
+
+    function setDiscountType(type) {
+      discountType = type;
+      document.getElementById('discBtnNone').className = type === 0 ? "px-2 py-0.5 rounded text-[11px] bg-indigo-600 text-white font-bold" : "px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600";
+      document.getElementById('discBtnPercent').className = type === 1 ? "px-2 py-0.5 rounded text-[11px] bg-indigo-600 text-white font-bold" : "px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600";
+      document.getElementById('discBtnFixed').className = type === 2 ? "px-2 py-0.5 rounded text-[11px] bg-indigo-600 text-white font-bold" : "px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600";
+
+      const row = document.getElementById('discountValueInputRow');
+      if (type === 0) {
+        row.classList.add('hidden');
+        document.getElementById('posDiscountValue').value = 0;
+      } else {
+        row.classList.remove('hidden');
+        document.getElementById('discountUnitLabel').innerText = type === 1 ? '%' : 'Rs';
+      }
+      calculateBillTotals();
+    }
+
+    function renderCart() {
+      const container = document.getElementById('posCartItems');
+      const checkoutBtn = document.getElementById('btnCheckout');
+
+      if (!cart.length) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-slate-400">
+            <i class="fa-solid fa-basket-shopping text-3xl mb-2 text-slate-300"></i>
+            <p class="text-xs">Your cart is empty. Add products to begin checkout.</p>
+          </div>
+        `;
+        checkoutBtn.disabled = true;
+        calculateBillTotals();
+        return;
+      }
+
+      checkoutBtn.disabled = false;
+      container.innerHTML = '';
+      cart.forEach(it => {
+        const itemRow = document.createElement('div');
+        itemRow.className = "py-2.5 flex items-center justify-between";
+        itemRow.innerHTML = `
+          <div class="flex-1 mr-2">
+            <div class="text-xs font-bold text-slate-800 leading-tight">${it.name}</div>
+            <div class="text-[10px] text-slate-400">Rate: ${formatMoney(it.unitPrice)} + ${(it.taxRate * 100).toFixed(0)}% Tax</div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="updateCartQty(${it.productId}, -1)" class="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold">-</button>
+            <span class="text-xs font-bold text-slate-900 w-5 text-center">${it.quantity}</span>
+            <button onclick="updateCartQty(${it.productId}, 1)" class="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold">+</button>
+          </div>
+          <div class="w-20 text-right text-xs font-bold text-slate-900 ml-3">
+            ${formatMoney((it.unitPrice + it.taxAmount) * it.quantity)}
+          </div>
+        `;
+        container.appendChild(itemRow);
+      });
+
+      calculateBillTotals();
+    }
+
+    function calculateBillTotals() {
+      let subtotal = 0;
+      let totalTax = 0;
+
+      cart.forEach(it => {
+        subtotal += it.unitPrice * it.quantity;
+        totalTax += it.taxAmount * it.quantity;
+      });
+
+      const discVal = parseFloat(document.getElementById('posDiscountValue').value) || 0;
+      let totalDiscount = 0;
+      if (discountType === 1) { // %
+        totalDiscount = subtotal * (discVal / 100.0);
+      } else if (discountType === 2) { // Fixed Rs
+        totalDiscount = Math.min(discVal, subtotal);
+      }
+
+      const grandTotal = Math.max(0, subtotal + totalTax - totalDiscount);
+
+      document.getElementById('posSubtotal').innerText = formatMoney(subtotal);
+      document.getElementById('posTotalTax').innerText = formatMoney(totalTax);
+      document.getElementById('posTotalDiscount').innerText = `- ${formatMoney(totalDiscount)}`;
+      document.getElementById('posGrandTotal').innerText = formatMoney(grandTotal);
+    }
+
+    async function submitCheckout() {
+      if (!cart.length) return;
+      const custName = document.getElementById('posCustomerName').value.trim() || "Walk-in Customer";
+      const discVal = parseFloat(document.getElementById('posDiscountValue').value) || 0;
+
+      const payload = {
+        customerName: custName,
+        staffUsername: currentUser.username,
+        discType: discountType,
+        discValue: discVal,
+        items: cart.map(it => ({ productId: it.productId, quantity: it.quantity }))
+      };
+
+      const res = await apiPost('/api/sales', payload);
+      if (res.success && res.sale) {
+        showToast(`Bill #${res.sale.saleId} created successfully! Total: ${formatMoney(res.sale.grandTotal)}`);
+        clearCart();
+        document.getElementById('posCustomerName').value = '';
+        displayReceiptModal(res.sale);
+        loadPOS();
+      } else {
+        showToast(res.message || "Checkout failed", "error");
+      }
+    }
+
+    function renderSalesHistory() {
+      const tbody = document.getElementById('salesHistoryTableBody');
+      tbody.innerHTML = '';
+
+      const sorted = [...rawSales].reverse();
+      sorted.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-xs";
+        const isRef = s.isRefunded;
+
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-900">#${s.saleId}</td>
+          <td class="px-4 py-3 text-slate-500">${s.saleDate}</td>
+          <td class="px-4 py-3 font-semibold text-slate-800">${s.customerName}</td>
+          <td class="px-4 py-3 text-slate-500">${s.items.length} product(s)</td>
+          <td class="px-4 py-3 text-right font-bold ${isRef ? 'line-through text-slate-400' : 'text-slate-900'}">${formatMoney(s.grandTotal)}</td>
+          <td class="px-4 py-3 text-center">
+            ${isRef ? '<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold">Refunded</span>' : '<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">Completed</span>'}
+          </td>
+          <td class="px-4 py-3 text-right space-x-2">
+            <button onclick="viewSaleReceipt(${s.saleId})" class="text-indigo-600 hover:text-indigo-800 font-bold">
+              <i class="fa-solid fa-receipt mr-1"></i>Receipt
+            </button>
+            ${!isRef ? `<button onclick="processRefund(${s.saleId})" class="text-rose-600 hover:text-rose-800 font-bold"><i class="fa-solid fa-rotate-left mr-1"></i>Refund</button>` : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function viewSaleReceipt(saleId) {
+      const s = rawSales.find(x => x.saleId === saleId);
+      if (s) displayReceiptModal(s);
+    }
+
+    function displayReceiptModal(s) {
+      document.getElementById('recBillNo').innerText = `#${s.saleId}`;
+      document.getElementById('recDate').innerText = s.saleDate;
+      document.getElementById('recCustomer').innerText = s.customerName;
+      document.getElementById('recStaff').innerText = s.staffUsername || 'Staff';
+
+      const tbody = document.getElementById('recItemsBody');
+      tbody.innerHTML = '';
+      s.items.forEach(it => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-1">${it.productName}</td>
+          <td class="text-center py-1">${it.quantity}</td>
+          <td class="text-right py-1">${formatMoney(it.unitPrice)}</td>
+          <td class="text-right py-1">${formatMoney(it.taxAmount)}</td>
+          <td class="text-right py-1 font-bold">${formatMoney(it.lineTotal)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('recSubtotal').innerText = formatMoney(s.subtotal);
+      document.getElementById('recTax').innerText = formatMoney(s.totalTax);
+      document.getElementById('recDiscount').innerText = `- ${formatMoney(s.totalDiscount)}`;
+      document.getElementById('recGrandTotal').innerText = formatMoney(s.grandTotal);
+
+      if (s.isRefunded) {
+        document.getElementById('recRefundedNotice').classList.remove('hidden');
+      } else {
+        document.getElementById('recRefundedNotice').classList.add('hidden');
+      }
+
+      openModal('receiptModal');
+    }
+
+    async function processRefund(saleId) {
+      if (currentRole === 'Staff') {
+        showToast("Access Denied: Staff role cannot authorize refunds.", "error");
+        return;
+      }
+      if (!confirm(`Are you sure you want to refund Sale #${saleId}? All items will be restocked to inventory.`)) return;
+
+      const res = await apiPost(`/api/sales/${saleId}/refund`, { user: currentUser.username });
+      if (res.success) {
+        showToast(res.message);
+        loadPOS();
+      } else {
+        showToast(res.message || "Refund failed", "error");
+      }
+    }
+
+    // ==========================================
+    // 4. STOCK ALERTS LOGIC
+    // ==========================================
+    async function loadAlerts() {
+      const data = await apiGet('/api/alerts');
+      if (!data) return;
+
+      document.getElementById('alertOutOfStockCount').innerText = data.outOfStock.length;
+      document.getElementById('alertLowStockCount').innerText = data.lowStock.length;
+      document.getElementById('alertExpiringCount').innerText = data.expiringGrocery.length;
+
+      const tbody = document.getElementById('reorderTableBody');
+      tbody.innerHTML = '';
+
+      if (!data.reorderRecommendations.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-emerald-600 font-semibold"><i class="fa-solid fa-circle-check mr-2"></i>All stock levels are optimal. No reorders required!</td></tr>`;
+        return;
+      }
+
+      data.reorderRecommendations.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-xs";
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-900">${r.productName}</td>
+          <td class="px-4 py-3 text-slate-500">${r.category}</td>
+          <td class="px-4 py-3 text-center font-bold ${r.currentStock === 0 ? 'text-rose-600' : 'text-amber-600'}">${r.currentStock}</td>
+          <td class="px-4 py-3 text-center text-slate-500">${r.minStockLevel}</td>
+          <td class="px-4 py-3 text-center font-bold text-indigo-600">+ ${r.reorderQty} units</td>
+          <td class="px-4 py-3 text-slate-700">${r.supplierCode}</td>
+          <td class="px-4 py-3 text-right font-medium text-slate-800">${formatMoney(r.estimatedCost)}</td>
+          <td class="px-4 py-3 text-right">
+            <button onclick="quickOrderProduct(${r.productId}, '${r.supplierCode}', ${r.reorderQty})" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition text-xs shadow-sm">
+              Create PO
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function quickOrderProduct(pid, suppCode, qty) {
+      openCreatePOModal();
+      setTimeout(() => {
+        if (suppCode && suppCode !== 'NONE') document.getElementById('poFormSupplier').value = suppCode;
+        document.getElementById('poFormProduct').value = pid;
+        document.getElementById('poFormQty').value = qty;
+        autoFillPOCost(pid);
+      }, 100);
+    }
+
+    // ==========================================
+    // 5. SUPPLIERS & PURCHASE ORDERS LOGIC
+    // ==========================================
+    async function loadSuppliers() {
+      rawSuppliers = await apiGet('/api/suppliers') || [];
+      rawPOs = await apiGet('/api/purchase-orders') || [];
+
+      // Render Suppliers
+      const supContainer = document.getElementById('suppliersList');
+      supContainer.innerHTML = '';
+      rawSuppliers.forEach(s => {
+        const card = document.createElement('div');
+        card.className = "p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1";
+        card.innerHTML = `
+          <div class="flex justify-between items-center">
+            <strong class="text-xs font-bold text-slate-900">${s.name}</strong>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">${s.code}</span>
+          </div>
+          <div class="text-[11px] text-slate-600"><i class="fa-solid fa-user mr-1 text-slate-400"></i>${s.contact || 'N/A'}</div>
+          <div class="text-[11px] text-slate-500"><i class="fa-solid fa-envelope mr-1 text-slate-400"></i>${s.email || 'N/A'}</div>
+        `;
+        supContainer.appendChild(card);
+      });
+
+      // Render POs
+      const poBody = document.getElementById('poTableBody');
+      poBody.innerHTML = '';
+      const sorted = [...rawPOs].reverse();
+      sorted.forEach(po => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-xs";
+        const isPending = po.status === 'Pending';
+
+        const itemsSummary = po.items.map(it => `${it.productName} (x${it.quantity})`).join(', ') || 'No items';
+
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-900">#${po.poId}</td>
+          <td class="px-4 py-3 text-slate-700 font-semibold">${po.supplierCode}</td>
+          <td class="px-4 py-3 text-slate-500">${po.orderDate} / <span class="text-indigo-600 font-semibold">${po.expectedDelivery}</span></td>
+          <td class="px-4 py-3 text-slate-700 max-w-xs truncate" title="${itemsSummary}">${itemsSummary}</td>
+          <td class="px-4 py-3 text-right font-bold text-slate-900">${formatMoney(po.totalCost)}</td>
+          <td class="px-4 py-3 text-center">
+            ${isPending ? '<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold">Pending</span>' : '<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">Received</span>'}
+          </td>
+          <td class="px-4 py-3 text-right">
+            ${isPending ? `<button onclick="receivePO(${po.poId})" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition text-xs shadow-sm">Receive & Restock</button>` : '<span class="text-slate-400 text-xs font-semibold">Stock Updated</span>'}
+          </td>
+        `;
+        poBody.appendChild(tr);
+      });
+    }
+
+    async function openCreatePOModal() {
+      if (currentRole === 'Staff') {
+        showToast("Access Denied: Staff role cannot issue purchase orders.", "error");
+        return;
+      }
+      rawSuppliers = await apiGet('/api/suppliers') || [];
+      rawProducts = await apiGet('/api/products') || [];
+
+      const supSelect = document.getElementById('poFormSupplier');
+      supSelect.innerHTML = rawSuppliers.map(s => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+
+      const prodSelect = document.getElementById('poFormProduct');
+      prodSelect.innerHTML = rawProducts.map(p => `<option value="${p.id}">${p.name} (Stock: ${p.quantity})</option>`).join('');
+
+      if (rawProducts.length) autoFillPOCost(rawProducts[0].id);
+      openModal('poModal');
+    }
+
+    function autoFillPOCost(pid) {
+      const p = rawProducts.find(x => x.id === parseInt(pid));
+      if (p) {
+        document.getElementById('poFormUnitCost').value = (p.price * 0.70).toFixed(2);
+      }
+    }
+
+    async function handlePOSubmit(e) {
+      e.preventDefault();
+      const pid = parseInt(document.getElementById('poFormProduct').value);
+      const p = rawProducts.find(x => x.id === pid);
+      const qty = parseInt(document.getElementById('poFormQty').value);
+      const cost = parseFloat(document.getElementById('poFormUnitCost').value);
+
+      const payload = {
+        supplierCode: document.getElementById('poFormSupplier').value,
+        leadDays: parseInt(document.getElementById('poFormLeadDays').value),
+        notes: document.getElementById('poFormNotes').value.trim() || "Stock replenishment",
+        user: currentUser.username,
+        items: [{
+          productId: pid,
+          productName: p ? p.name : `Product #${pid}`,
+          quantity: qty,
+          unitCost: cost
+        }]
+      };
+
+      const res = await apiPost('/api/purchase-orders', payload);
+      if (res.success) {
+        closeModal('poModal');
+        showToast(`PO #${res.poId} issued successfully!`);
+        loadSuppliers();
+      } else {
+        showToast(res.message || "Failed to create PO", "error");
+      }
+    }
+
+    async function receivePO(poid) {
+      if (currentRole === 'Staff') {
+        showToast("Access Denied: Staff role cannot confirm PO delivery.", "error");
+        return;
+      }
+      if (!confirm(`Confirm receipt for PO #${poid}? Products will immediately be added to current stock.`)) return;
+
+      const res = await apiPost(`/api/purchase-orders/${poid}/receive`, { user: currentUser.username });
+      if (res.success) {
+        showToast(res.message);
+        loadSuppliers();
+      } else {
+        showToast(res.message || "Failed to receive PO", "error");
+      }
+    }
+
+    function openAddSupplierModal() {
+      document.getElementById('supplierForm').reset();
+      openModal('supplierModal');
+    }
+
+    async function handleSupplierSubmit(e) {
+      e.preventDefault();
+      const payload = {
+        code: document.getElementById('supCode').value.trim().toUpperCase(),
+        name: document.getElementById('supName').value.trim(),
+        contact: document.getElementById('supContact').value.trim(),
+        email: document.getElementById('supEmail').value.trim(),
+        address: document.getElementById('supAddress').value.trim()
+      };
+
+      const res = await apiPost('/api/suppliers', payload);
+      if (res.success) {
+        closeModal('supplierModal');
+        showToast(`Supplier ${payload.name} added!`);
+        loadSuppliers();
+      } else {
+        showToast(res.message || "Failed to save supplier", "error");
+      }
+    }
+
+    // ==========================================
+    // 6. ANALYTICS & FORECASTING LOGIC
+    // ==========================================
+    async function loadAnalytics() {
+      const data = await apiGet('/api/analytics');
+      if (!data) return;
+
+      document.getElementById('anaRevenue').innerText = formatMoney(data.summary.totalRevenue);
+      document.getElementById('anaCost').innerText = formatMoney(data.summary.estimatedCost);
+      document.getElementById('anaProfit').innerText = formatMoney(data.summary.grossProfit);
+      document.getElementById('anaMargin').innerText = `${data.summary.marginPercent}%`;
+
+      // Top 5 Chart
+      const ctx = document.getElementById('topProductsChart').getContext('2d');
+      if (topProductsChartInstance) topProductsChartInstance.destroy();
+      topProductsChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.topProducts.map(p => p.name),
+          datasets: [{
+            label: 'Units Sold',
+            data: data.topProducts.map(p => p.unitsSold),
+            backgroundColor: '#4f46e5',
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      // Demand Forecasting Table
+      const tbody = document.getElementById('forecastTableBody');
+      tbody.innerHTML = '';
+      data.demandForecast.forEach(f => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-xs";
+        const isUrgent = f.needsOrderSoon;
+
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-900">${f.name}</td>
+          <td class="px-4 py-3 text-center font-bold text-slate-700">${f.stock}</td>
+          <td class="px-4 py-3 text-center text-indigo-600 font-semibold">${f.avgDailySales} units/day</td>
+          <td class="px-4 py-3 text-center font-semibold ${isUrgent ? 'text-rose-600' : 'text-slate-700'}">${typeof f.daysRemaining === 'number' ? f.daysRemaining + ' days' : f.daysRemaining}</td>
+          <td class="px-4 py-3 text-center text-slate-500">${f.leadTimeDays} days</td>
+          <td class="px-4 py-3 text-center">
+            ${isUrgent ? '<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold">Urgent Reorder</span>' : '<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">Adequate</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ==========================================
+    // 7. AUDIT TRAIL & UNDO LOGIC
+    // ==========================================
+    async function loadAudit() {
+      rawAudit = await apiGet('/api/audit') || [];
+      const tbody = document.getElementById('auditTableBody');
+      tbody.innerHTML = '';
+
+      rawAudit.forEach(a => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-xs";
+
+        let deltaHtml = '<span class="text-slate-400">N/A</span>';
+        if (a.prevQty !== -1 && a.newQty !== -1) {
+          const diff = a.newQty - a.prevQty;
+          deltaHtml = `<span class="font-bold ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${a.prevQty} → ${a.newQty} (${diff >= 0 ? '+' : ''}${diff})</span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-semibold text-slate-500">#${a.id}</td>
+          <td class="px-4 py-3 text-slate-400 whitespace-nowrap">${a.timestamp}</td>
+          <td class="px-4 py-3"><span class="px-2 py-0.5 rounded bg-slate-100 font-bold text-slate-700 text-[10px]">${a.action}</span></td>
+          <td class="px-4 py-3 font-semibold text-slate-800">${a.username}</td>
+          <td class="px-4 py-3">${deltaHtml}</td>
+          <td class="px-4 py-3 text-slate-700 font-medium">${a.description} ${a.reason ? '<span class="text-slate-400 italic">(' + a.reason + ')</span>' : ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function triggerUndo() {
+      if (currentRole === 'Staff') {
+        showToast("Access Denied: Staff role cannot execute undo operations.", "error");
+        return;
+      }
+      if (!confirm("Are you sure you want to undo the last stock operation?")) return;
+
+      const res = await apiPost('/api/audit/undo', { user: currentUser.username });
+      if (res.success) {
+        showToast(res.message);
+        loadDashboard();
+        loadProducts();
+        loadAudit();
+      } else {
+        showToast(res.message || "Nothing to undo", "error");
+      }
+    }
+
+    // ==========================================
+    // 8. ADMIN & REPORTS LOGIC
+    // ==========================================
+    async function loadAdmin() {
+      const users = await apiGet('/api/users') || [];
+      const tbody = document.getElementById('usersTableBody');
+      tbody.innerHTML = '';
+
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-xs";
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-500">#${u.id}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${u.username}</td>
+          <td class="px-4 py-3 text-slate-700 font-medium">${u.fullName || u.username}</td>
+          <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${u.role === 'Admin' ? 'bg-indigo-50 text-indigo-700' : (u.role === 'Manager' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700')}">${u.role}</span></td>
+          <td class="px-4 py-3 text-center"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">Active</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openAddUserModal() {
+      if (currentRole !== 'Admin') {
+        showToast("Access Denied: Only Admin can add system users.", "error");
+        return;
+      }
+      document.getElementById('userForm').reset();
+      openModal('userModal');
+    }
+
+    async function handleUserSubmit(e) {
+      e.preventDefault();
+      const payload = {
+        username: document.getElementById('newUserUsername').value.trim(),
+        fullName: document.getElementById('newUserFullName').value.trim(),
+        role: document.getElementById('newUserRole').value,
+        adminUser: currentUser.username
+      };
+
+      const res = await apiPost('/api/users', payload);
+      if (res.success) {
+        closeModal('userModal');
+        showToast(`User '${payload.username}' created!`);
+        loadAdmin();
+      } else {
+        showToast(res.message || "Failed to create user", "error");
+      }
+    }
+
+    function downloadCSVReport(type) {
+      window.location.href = `/api/reports/download?type=${type}`;
+    }
+
+    async function triggerBackup() {
+      if (currentRole !== 'Admin') {
+        showToast("Access Denied: Only Admin can create system backups.", "error");
+        return;
+      }
+      const res = await apiPost('/api/backup', { user: currentUser.username });
+      if (res.success) {
+        showToast(res.message);
+      } else {
+        showToast(res.message || "Backup failed", "error");
+      }
+    }
+
+    async function triggerRestore() {
+      if (currentRole !== 'Admin') {
+        showToast("Access Denied: Only Admin can restore system backups.", "error");
+        return;
+      }
+      if (!confirm("Caution: Restoring from backup will overwrite all current CSV records with backup snapshot. Proceed?")) return;
+
+      const res = await apiPost('/api/restore', { user: currentUser.username });
+      if (res.success) {
+        showToast(res.message);
+        loadDashboard();
+      } else {
+        showToast(res.message || "Restore failed", "error");
+      }
+    }
+
+    // Initialize application on load
+    window.addEventListener('DOMContentLoaded', () => {
+      switchTab('dashboard');
+    });
+  </script>
+</body>
+</html>
